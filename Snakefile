@@ -33,18 +33,21 @@ rule all:
 rule create_dirs:
     output:
         marker = f"{SNAKEMAKE_DIR}/dirs_created"
+    
     shell:
         """
-        echo "Making Pipeline files..."
-        mkdir -p {RAW_DIR} {ALIGNED_DIR} {VARIANT_DIR} {ANNOTATED_DIR} {QC_DIR} {SNPEFF_DIR} {SNPEFF_DATA_DIR} {SNAKEMAKE_DIR}
-        touch {output.marker}
+        echo "Makeing Pipeline files..."
+        mkdir -p {RAW_DIR} {ALIGNED_DIR} {VARIANT_DIR} {ANNOTATED_DIR} {QC_DIR} {SNPEFF_DIR} {SNPEFF_DATA_DIR}
+        touch {SNAKEMAKE_DIR}/dirs_created
         """
 
 rule download_fasta:
     input:
-        f"{SNAKEMAKE_DIR}/dirs_created"    
+        f"{SNAKEMAKE_DIR}/dirs_created"
+        
     output:
-        f"{RAW_DIR}/reference.fasta" 
+        f"{RAW_DIR}/reference.fasta"
+    
     shell:
         """
         echo Downloading reference genome...
@@ -125,22 +128,21 @@ rule Create_BAM:
     output:
         f"{ALIGNED_DIR}/aligned.sorted.bam",
         f"{ALIGNED_DIR}/dedup.bam",
-        f"{ALIGNED_DIR}/dedup.bam.bai",
         f"{ALIGNED_DIR}/dup_metrics.txt"
 
     shell:
         """
         echo Converting SAM to sorted BAM...
-        samtools view -b {input}| samtools sort -o {output[0]}
+        samtools view -b {ALIGNED_DIR}/aligned.sam | samtools sort -o {ALIGNED_DIR}/aligned.sorted.bam
 
         echo Validating BAM file...
-        gatk ValidateSamFile -I {output[0]} -MODE SUMMARY
+        gatk ValidateSamFile -I {ALIGNED_DIR}/aligned.sorted.bam -MODE SUMMARY
 
         echo Marking duplicates...
-        gatk MarkDuplicates -I {output[0]} -O {output[1]} -M {output[3]}
+        gatk MarkDuplicates -I {ALIGNED_DIR}/aligned.sorted.bam -O {ALIGNED_DIR}/dedup.bam -M {ALIGNED_DIR}/dup_metrics.txt
 
         echo Indexing deduplicated BAM file...
-        samtools index {output[1]}
+        samtools index {ALIGNED_DIR}/dedup.bam
         """
 
 rule Variant_Calling:
@@ -166,9 +168,7 @@ rule snpEff_database:
         f"{RAW_DIR}/reference.fasta"
     output:
         f"{SNPEFF_DATA_DIR}/genes.gbk",
-        f"{SNPEFF_DIR}/snpEff.config",
-        f"{SNPEFF_DIR}/snpeff_build.done",
-        f"{SNPEFF_DIR}/snpEff_reference_db.txt",
+        f"{SNPEFF_DIR}/snpEff.config"
 
     shell:
         """
